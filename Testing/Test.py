@@ -9,7 +9,7 @@ Created on Thu Oct  1 11:20:06 2020
 import numpy as np
 from math import factorial
 import matplotlib.pyplot as plt
-from PRNG import RCARRY, LinearCongruential
+from PRNG import rCarry, linearCongruential, fibonacci, s24r55
 
 #%%
 
@@ -38,11 +38,11 @@ class chisq:
         return np.sum(res)
     
     # Show a histogram of the observed data
-    def show(self):
+    def showBins(self):
         plt.hist(x        = self.random, 
                  bins     = self.bins,
                  density  = True,
-                 histtype = "step",
+                 histtype = 'step',
                  alpha = 0.5)
         plt.plot(np.arange(0, 1, 1/self.binsize),
                  np.ones(self.binsize),
@@ -52,35 +52,63 @@ class chisq:
 #%%
 
 class permutationTest:
-    def __init__(self, prng, tuplesize = 3, normalize = False):
-        self.random      = prng.random/prng.modulus if normalize else prng.random
+    def __init__(self, prng, tuplesize = 3):
+        self.random      = prng.random
         self.tuplesize   = tuplesize
-        self.tuplelength = int(np.floor(len(self.random)/tuplesize))
-        self.tuples      = np.zeros((self.tuplelength, self.tuplesize))
-        self.bins        = np.zeros(factorial(tuplesize))
-        
-    def createTuples(self):
-        stop = self.tuplesize*self.tuplelength
-        step = self.tuplesize
-        for start in range(self.tuplesize):
-            self.tuples[:,start] = self.random[start:stop:step]
+        self.tuplelength = len(prng.random)//tuplesize
+        self.tuples      = self._createTuples()
+        self.bins        = self._fillBins()
     
-    def tupleToBin(self, coordinate, n, binnumber = 0):
-        assert len(coordinate)-1 == n
+    def __str__(self):
+        return r"chi2-test: {}".format(self.chi2())
+    
+    def _createTuples(self):
+        tuples  = np.zeros((self.tuplelength, self.tuplesize))
+        stop    = self.tuplesize*self.tuplelength
+        step    = self.tuplesize
+        for start in range(self.tuplesize):
+            tuples[:,start] = self.random[start:stop:step]
+        return tuples
+    
+    def _tupleToBin(self, ntuple, n, binnumber = 0):
+        assert len(ntuple)-1 == n
         if n!=0:
-            index         = np.argmax(coordinate)
+            index         = np.argmax(ntuple)
             newbinnumber  = binnumber + index*factorial(n)
-            newcoordinate = np.delete(coordinate,index)
-            return self.tupleToBin(newcoordinate, n-1, newbinnumber)
+            newcoordinate = np.delete(ntuple,index)
+            return self._tupleToBin(newcoordinate, n-1, newbinnumber)
         return binnumber
     
-    def fillBins(self):
-        pass
+    def _fillBins(self):
+        bins = np.zeros(factorial(self.tuplesize))
+        for i in range(self.tuplelength):
+            binnumber  = self._tupleToBin(self.tuples[i], 
+                                          self.tuplesize-1)
+            bins[binnumber]+=1
+        return bins
+            
+    def showBins(self):
+        plt.hist(x          = np.arange(factorial(self.tuplesize)),
+                 weights    = self.bins,
+                 bins       = factorial(self.tuplesize),
+                 histtype   = 'bar',
+                 density    = True,
+                 rwidth     = 0.9,
+                 color      = 'orange',
+                 alpha      = 0.5)
+        plt.plot()
+    
+    def chisq(self):
+        observed = self.bins
+        expected = self.tuplelength/factorial(self.tuplesize)*np.ones(factorial(self.tuplesize))
+        res = np.divide((observed-expected)**2,
+                        expected)
+        return np.sum(res)
         
         
         
         
-#%% Test RCARRY
+#%% Initiate RCARRY
         
 modulus   = 2**20
 # Random numbers of O(modulus) of # length 24.
@@ -88,33 +116,37 @@ seeds     = np.array([999999, 123456, 535322, 874372, 1000000, 875767, 232001, 6
                       34237, 142342, 123321, 613549, 97876, 927496, 827248, 248382, 324294, 952349, 23424, 993494])                                       
 s         = 10
 carry_bit = 0
-
+size      = 10**5
 # Generate random numbers for RCARRY
 
-rcarry = RCARRY(seeds, modulus, s, carry_bit)
-rcarry.generateNumbers()
+rcarry = rCarry(seeds, modulus, size, s, carry_bit)
 
-#%% Test and show
+#%% Initiate Fibonacci
 
-test_rcarry = chisq(rcarry,
-                    binsize = 100,
-                    normalize = True)
-print(test_rcarry)
-test_rcarry.show()
+#%% Initiate s24r55
 
-#%% Test Linear Congruential Generator
+#%% Chi^2 test RCARRY
 
-lincon = LinearCongruential(seed    = 0, 
-                            modulus = 10000,
-                            a       = 65617,
-                            c       = 23432)
-lincon.generateNumbers()
+chisq_rcarry = chisq(rcarry,
+                     binsize = 100,
+                     normalize = True)
+chisq_rcarry.showBins()
+chisq_rcarry.__str__()
 
-test_lincon = chisq(lincon,
-                    binsize   = 10,
-                    normalize = True)
-print(test_lincon)
-test_lincon.show()
+#%% Permutation test RCARRY
+
+pt_rcarry = permutationTest(rcarry)
+pt_rcarry.showBins()
+pt_rcarry.chisq()
+
+#%% Permutation test Fibonacci
+
+#%% Permutation test s24r55
+
+
+
+
+
 
 
 
