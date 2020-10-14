@@ -10,21 +10,24 @@ import numpy as np
 from numpy.random import randint
 from math import pi
 from PRNG import middleSquare, logisticMap, linearCongruential, rCarry
+from cmath import exp
 
+I = complex(0,1)
 
 #%%
 
 class pointSet:
-    def __init__(self, dim=1, size = 1000, modulus = 10**5, method = 'rCarry'):
+    def __init__(self, dim=1, size = 1000, modulus = 10**5, method = 'rCarry', normalize = True):
         methods = ['MiddleSquare', 'LogisticMap', 'LinearCongruential', 'rCarry']
         assert method in methods
         self.dim    = dim
-        self.random = self._initiateRandomNumbers(dim, size, modulus, method)
+        self.size   = size
+        self.random = self._initiateRandomNumbers(dim, size, modulus, method, normalize)
     
-    def _pickRandomizer(self, size, modulus, method):
+    def _pickRandomizer(self, size, modulus, method, normalize):
         picker = {'MiddleSquare'       : middleSquare(seed    = randint(0, high = modulus-1),
                                                       modulus = modulus,
-                                                      size    = size,),
+                                                      size    = size),
                   'LogisticMap'        : logisticMap(seed    = randint(0, high = modulus-1),
                                                      modulus = modulus,
                                                      size    = size),
@@ -37,12 +40,12 @@ class pointSet:
                                                 s         = 10,
                                                 carry_bit = 0)}
         alg = picker[method]
-        return alg.random
+        return alg.random/modulus if normalize else alg.random
    
-    def _initiateRandomNumbers(self, dim, size, modulus, method):
+    def _initiateRandomNumbers(self, dim, size, modulus, method, normalize):
         random = np.zeros((dim, size))
         for idx, _ in enumerate(random):
-            random[idx] = self._pickRandomizer(size, modulus, method)
+            random[idx] = self._pickRandomizer(size, modulus, method, normalize)
         return random.T
                 
 
@@ -51,25 +54,34 @@ class pointSet:
 
 
 class Diaphony:
-    def __init__(self, dim, size):
-        self.dim      = dim
-        self.size     = size
-        self.strength
+    def __init__(self, ps):
+        self.pointset = ps
+        self.dim      = ps.dim
+        self.size     = ps.size
+        self.strength = self._initStrength()
+
+    def __str__(self):
+        return 'Sum of Strengths: {}'.format(self._sumOfStrengths())
         
     def _initStrength(self):
         pass
     
-    def beta(self, x):
+    def _sumOfStrengths(self):
+        return 2**self.dim*np.sum(self.strength)
+    
+    def betaApprox(self, x):
         pass
-
+    
+    def betaExact(x):
+        pass
 
 #%%
         
 
 class Euler1D(Diaphony):
-    def __init__(self, size):
-        super().__init__(1, size)
-        self.strength = self._initStrength()
+    def __init__(self, ps):
+        assert ps.dim == 1
+        super().__init__(ps)
 
     def _initStrength(self):
         strength = np.arange(start = 1, stop = self.size + 1, step = 1)**2
@@ -77,14 +89,28 @@ class Euler1D(Diaphony):
                              strength)
         return 3/pi**2*strength
     
-    def beta(x):
+    def betaApprox(self, x):
+        res = 0
+        for n in range(self.size):
+            res += 2*self.strength[n]*np.cos(2*pi*(n+1)*x)
+        return res
+        
+    def betaExact(self, x):
         return 1-6*np.abs(x)*(1-np.abs(x))
-
-
+    
+    def diaphony(self):
+        t = self.size
+        row, col = np.triu_indices(self.size, k=1)
+        for n in range(len(row)):
+            t += self.betaExact(self.pointset.random[row[n]] - self.pointset.random[col[n]])
+        return t/self.size
+            
+    
 class Euler(Diaphony):
-    def __init__(self, dim, size):
-        super().__init__(dim, size)
-        self.strength = self._initStrength()
+    def __init__(self, ps):
+        assert ps.dim > 1
+        super().__init__(ps)
+        # due to symmetry, only calculate the strength of vectors whose components are all positive
 
     def _initStrength(self):
         strength = np.zeros([self.size for i in range(self.dim)])
@@ -96,11 +122,25 @@ class Euler(Diaphony):
             strength[vec] = np.prod(res)/(2**self.dim-1)
         return strength
     
-    def beta(self, x):
+    def betaApprox(self, x):
+        res = 0
+        for n in range(len(self.size)):
+            
+    def createPermutations(self, vec):
+        vec_arr = np.zer
+            
+            
+    def betaExact(self, x):
         res = np.ones(self.dim)
         for i, xmu in enumerate(x):
             res[i] += Euler1D.beta(xmu)
         return (np.prod(res)-1)/(2**self.dim-1)
+
+    def diaphony(self):
+        pass
+   
+    
+#%%
 
 
 class Gulliver(Diaphony):
@@ -125,6 +165,12 @@ class Gulliver(Diaphony):
         res    = np.prod(res) - 1
         prefac = 1/(((1+self.s)/(1-self.s))**self.dim - 1)
         return prefac*res
+
+#%%
+
+ps = pointSet(dim = 1, size = 1000, modulus = 10**5, method = 'LinearCongruential')
+eu = Euler1D(ps)
+print(eu.diaphony())
 
 #%%
             
