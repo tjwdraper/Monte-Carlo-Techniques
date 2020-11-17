@@ -9,7 +9,7 @@ Created on Tue Oct 13 11:29:38 2020
 import numpy as np
 from numpy.random import randint
 from math import pi
-from PRNG import middleSquare, logisticMap, linearCongruential, rCarry
+from PRNG import middleSquare, logisticMap, linearCongruential, rCarry, fibonacci, s24r55
 from cmath import exp
 
 I = complex(0,1)
@@ -18,7 +18,7 @@ I = complex(0,1)
 
 class pointSet:
     def __init__(self, dim=1, size = 1000, modulus = 10**5, method = 'rCarry', normalize = True):
-        methods = ['MiddleSquare', 'LogisticMap', 'LinearCongruential', 'rCarry']
+        methods = ['MiddleSquare', 'LogisticMap', 'LinearCongruential', 'rCarry', 'Fibonacci', 'S24R55']
         assert method in methods
         self.dim    = dim
         self.size   = size
@@ -38,7 +38,13 @@ class pointSet:
                                                 modulus   = modulus,
                                                 size      = size,
                                                 s         = 10,
-                                                carry_bit = 0)}
+                                                carry_bit = 0),
+                  'Fibonacci'          : fibonacci(seed = randint(0, high = modulus-1, size = 2),
+                                                   modulus = modulus,
+                                                   size = size),
+                  'S24R55'             : s24r55(seed = randint(0, high=modulus-1, size = 55),
+                                                modulus = modulus,
+                                                size = size)}
         alg = picker[method]
         return alg.random/modulus if normalize else alg.random
    
@@ -124,11 +130,10 @@ class Euler(Diaphony):
     
     def betaApprox(self, x):
         res = 0
-        for n in range(len(self.size)):
-            
-    def createPermutations(self, vec):
-        vec_arr = np.zer
-            
+        for vec, str_n in np.ndenumerate(self.strength):
+            ndotz =  np.matmul(permuteSignMatrix(self.dim)*vec, x)
+            res   += str_n*np.sum(2*np.cos(2*pi*ndotz))
+        return res            
             
     def betaExact(self, x):
         res = np.ones(self.dim)
@@ -168,7 +173,7 @@ class Gulliver(Diaphony):
 
 #%%
 
-ps = pointSet(dim = 1, size = 1000, modulus = 10**5, method = 'LinearCongruential')
+ps = pointSet(dim = 2, size = 1000, modulus = 10**5, method = 'LinearCongruential')
 eu = Euler1D(ps)
 print(eu.diaphony())
 
@@ -184,7 +189,23 @@ dia_gul = Gulliver(dim = 5, size = 2, s = 0.5)
 print(dia_gul.strength)        
 print('sum of strengths: {}'.format(np.sum(dia_gul.strength))) 
         
-        
+#%%
+
+def permuteSignMatrix(dim = 3):
+    if dim == 1:
+        return np.array([1])
+    elif dim == 2:
+        return np.array([[1,1],[1,-1]])
+    else:
+        mat = np.zeros((2**(dim-1), dim))
+        mat[:,0] = 1
+        mat[:2**(dim-2),1:] = permuteSignMatrix(dim-1)
+        mat[2**(dim-2):,1:] = -1*permuteSignMatrix(dim-1)
+        return mat
+
+mat = permuteSignMatrix(dim = 5)
+print(mat)
+            
         
         
         
